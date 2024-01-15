@@ -101,7 +101,7 @@ int main(int argc, char *argv[])
     std::fstream png_outfile(output_fname, std::ios::binary | std::ios::out);
 
     PNGWriter writer;
-    writer.write(png_outfile, blurred, PNG_COLOR_TYPE_GRAY);
+    writer.write(png_outfile, blurred);
 
     return 0;
 }

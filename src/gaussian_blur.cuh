@@ -18,6 +18,33 @@ __global__ void gaussian_blur_kern(cudaTextureObject_t image,
                                    ssize_t rad_x,
                                    ssize_t rad_y)
 {
+    /// Construct matrix with Gaussian values.
+    // All this work is repeated by every thread, but it is pretty fast.
+    extern __shared__ float gaussian_matrix[];
+    float gaussian_matrix_sum = 0;
+
+    for (ssize_t dx = -rad_x; dx < rad_x; dx++)
+    {
+        for (ssize_t dy = -rad_y; dy < rad_y; dy++)
+        {
+            float val = exp(-(dx * dx + dy * dy) / (2 * stddev * stddev));
+            val /= (2 * M_PI * stddev * stddev);
+
+            // Indices for Gaussian matrix
+            ssize_t ix = dx + rad_x, iy = dy + rad_y;
+
+            // store computed gaussian value in appropriate location in matrix.
+            gaussian_matrix[iy * (2 * rad_x + 1) + ix] = val;
+            gaussian_matrix_sum += val;
+        }
+    }
+
+    // Normalize computed Gaussian matrix
+    for (ssize_t ix = 0; ix < 2 * rad_x + 1; ix++)
+        for (ssize_t iy = 0; iy < 2 * rad_y + 1; iy++)
+            gaussian_matrix[iy * (2 * rad_x + 1) + ix] /= gaussian_matrix_sum;
+
+    /// Apply Gaussian blur to pixel (x, y) within the image.
     ssize_t x = blockIdx.x * blockDim.x + threadIdx.x;
     ssize_t y = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -32,14 +59,15 @@ __global__ void gaussian_blur_kern(cudaTextureObject_t image,
                 float norm_x = (x + dx) / (float)width;
                 float norm_y = (y + dy) / (float)height;
 
-                float val = tex2DLayered<float>(image, norm_x, norm_y, z);
+                // Indices for Gaussian matrix
+                ssize_t ix = dx + rad_x, iy = dy + rad_y;
 
-                res += val * exp(-(dx * dx + dy * dy) / (2 * stddev * stddev)) /
-                       (2 * M_PI * stddev * stddev);
+                float val = tex2DLayered<float>(image, norm_x, norm_y, z);
+                res += val * gaussian_matrix[iy * (2 * rad_x + 1) + ix];
             }
         }
 
-        CUDA_IMAGE_BUF_ACCESS(blurred, pitch, height, x, y, z) = numeric_limits<PixelType>::max() * res;
+        CUDA_IMAGE_BUF_ACCESS(blurred, pitch, height, x, y, z) = numeric_limits<PixelType>::max * res;
     }
 }
 
@@ -66,7 +94,12 @@ ImageBuffer<PixelType> gaussian_blur(const ImageBuffer<PixelType> &image,
         -(-(ssize_t)image.width / blocksize.x),
         -(-(ssize_t)image.height / blocksize.y));
 
-    gaussian_blur_kern<<<gridsize, blocksize>>>(
+    ssize_t gauss_matrix_size = (2 * rad_x + 1) * (2 * rad_y + 1);
+
+    gaussian_blur_kern<<<
+        gridsize,
+        blocksize,
+        gauss_matrix_size * sizeof(float)>>>(
         image_texbuf.tex_obj,
         blurred_device.data,
         width,
