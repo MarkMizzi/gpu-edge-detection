@@ -7,25 +7,6 @@
 #include <utils.cuh>
 
 template <typename PixelType>
-__global__ void rgb_to_grayscale(PixelType *in,
-                                 PixelType *out,
-                                 ssize_t height,
-                                 size_t pitch,
-                                 size_t out_pitch)
-{
-    // we add one because we don't consider the edges of the image
-    ssize_t x = blockIdx.x * blockDim.x + threadIdx.x + 1;
-    ssize_t y = blockIdx.y * blockDim.y + threadIdx.y + 1;
-
-    float r = CUDA_IMAGE_BUF_ACCESS(in, pitch, height, x, y, 0);
-    float g = CUDA_IMAGE_BUF_ACCESS(in, pitch, height, x, y, 1);
-    float b = CUDA_IMAGE_BUF_ACCESS(in, pitch, height, x, y, 2);
-
-    float grayscale = 0.299 * r + 0.587 * g + 0.114 * b;
-    CUDA_IMAGE_BUF_ACCESS(out, out_pitch, height, x, y, 0) = grayscale;
-}
-
-template <typename PixelType>
 __global__ void sobel_grad_kern(PixelType *in,
                                 PixelType *grad_buf,
                                 ssize_t width,
@@ -92,10 +73,11 @@ ImageBuffer<PixelType> edge_detect(const ImageBuffer<PixelType> &image,
     width = width == 0 ? image.width : width;
     height = height == 0 ? image.height : height;
 
+    ImageBuffer<PixelType> grayscale_image = image.to_grayscale();
+
     // texture with normalized coords and normalized float read mode
-    Layered2DTextureBuffer image_texbuf(image, true, true);
+    Layered2DTextureBuffer grayscale_image_texbuf(grayscale_image, true, true);
     CudaImageBuffer<PixelType> blurred_device(width, height, image.channels);
-    CudaImageBuffer<PixelType> grayscale_device(width, height, 1);
     CudaImageBuffer<PixelType> grad_image_device(width, height, 1);
 
     // NOTE: Arbitrarily chosen. Adjust for performance.
@@ -111,24 +93,15 @@ ImageBuffer<PixelType> edge_detect(const ImageBuffer<PixelType> &image,
         gridsize,
         blocksize,
         gauss_matrix_size * sizeof(float)>>>(
-        image_texbuf.tex_obj,
+        grayscale_image_texbuf.tex_obj,
         blurred_device.data,
         width,
         height,
         blurred_device.pitch / sizeof(PixelType),
-        image.channels,
+        grayscale_image.channels,
         stddev,
         rad_x,
         rad_y);
-
-    checkCudaErrors(cudaGetLastError());
-
-    rgb_to_grayscale<<<gridsize, blocksize>>>(
-        blurred_device.data,
-        grayscale_device.data,
-        height,
-        blurred_device.pitch / sizeof(PixelType),
-        grayscale_device.pitch / sizeof(PixelType));
 
     checkCudaErrors(cudaGetLastError());
 
@@ -137,7 +110,7 @@ ImageBuffer<PixelType> edge_detect(const ImageBuffer<PixelType> &image,
                     (image.height - 2 + blocksize.y - 1) / blocksize.y);
 
     sobel_grad_kern<<<gridsize, blocksize>>>(
-        grayscale_device.data,
+        blurred_device.data,
         grad_image_device.data,
         width,
         height,

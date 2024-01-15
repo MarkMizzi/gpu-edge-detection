@@ -76,6 +76,29 @@ public:
             out.write((char *)(data + pitch * r), width * sizeof(PixelType));
     }
 
+    ImageBuffer to_grayscale() const
+    {
+        assert(channels == 3);
+
+        ImageBuffer grayscale_image(width, height, 1);
+
+        for (size_t y = 0; y < height; y++)
+        {
+            for (size_t x = 0; x < width; x++)
+            {
+                float r = (*this)(x, y, 0);
+                float g = (*this)(x, y, 1);
+                float b = (*this)(x, y, 2);
+
+                float grayscale = 0.299 * r + 0.587 * g + 0.114 * b;
+
+                grayscale_image(x, y, 0) = grayscale;
+            }
+        }
+
+        return grayscale_image;
+    }
+
     ImageBuffer(const size_t width, const size_t height, const size_t channels, size_t pitch = 0)
         : width(width),
           height(height),
