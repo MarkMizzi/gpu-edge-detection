@@ -19,30 +19,35 @@ __global__ void gaussian_blur_kern(cudaTextureObject_t image,
                                    ssize_t rad_y)
 {
     /// Construct matrix with Gaussian values.
-    // All this work is repeated by every thread, but it is pretty fast.
     extern __shared__ float gaussian_matrix[];
     float gaussian_matrix_sum = 0;
 
-    for (ssize_t dx = -rad_x; dx < rad_x; dx++)
+    // All this work is sequential, but it is pretty fast.
+    __syncthreads();
+    if (!threadIdx.x && !threadIdx.y && !threadIdx.z)
     {
-        for (ssize_t dy = -rad_y; dy < rad_y; dy++)
+        for (ssize_t dx = -rad_x; dx < rad_x; dx++)
         {
-            float val = exp(-(dx * dx + dy * dy) / (2 * stddev * stddev));
-            val /= (2 * M_PI * stddev * stddev);
+            for (ssize_t dy = -rad_y; dy < rad_y; dy++)
+            {
+                float val = exp(-(dx * dx + dy * dy) / (2 * stddev * stddev));
+                val /= (2 * M_PI * stddev * stddev);
 
-            // Indices for Gaussian matrix
-            ssize_t ix = dx + rad_x, iy = dy + rad_y;
+                // Indices for Gaussian matrix
+                ssize_t ix = dx + rad_x, iy = dy + rad_y;
 
-            // store computed gaussian value in appropriate location in matrix.
-            gaussian_matrix[iy * (2 * rad_x + 1) + ix] = val;
-            gaussian_matrix_sum += val;
+                // store computed gaussian value in appropriate location in matrix.
+                gaussian_matrix[iy * (2 * rad_x + 1) + ix] = val;
+                gaussian_matrix_sum += val;
+            }
         }
-    }
 
-    // Normalize computed Gaussian matrix
-    for (ssize_t ix = 0; ix < 2 * rad_x + 1; ix++)
-        for (ssize_t iy = 0; iy < 2 * rad_y + 1; iy++)
-            gaussian_matrix[iy * (2 * rad_x + 1) + ix] /= gaussian_matrix_sum;
+        // Normalize computed Gaussian matrix
+        for (ssize_t ix = 0; ix < 2 * rad_x + 1; ix++)
+            for (ssize_t iy = 0; iy < 2 * rad_y + 1; iy++)
+                gaussian_matrix[iy * (2 * rad_x + 1) + ix] /= gaussian_matrix_sum;
+    }
+    __syncthreads();
 
     /// Apply Gaussian blur to pixel (x, y) within the image.
     ssize_t x = blockIdx.x * blockDim.x + threadIdx.x;
