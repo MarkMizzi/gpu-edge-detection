@@ -1,4 +1,4 @@
-#include "gaussian_blur.cuh"
+#include "edge_detection.cuh"
 #include <png.hh>
 
 #include <boost/program_options.hpp>
@@ -87,8 +87,8 @@ int main(int argc, char *argv[])
     struct timeval start;
     gettimeofday(&start, nullptr);
 
-    ImageBuffer<PNGWriter::PixelType> blurred =
-        gaussian_blur(input_img, blur_stddev, blur_rad_x, blur_rad_y);
+    ImageBuffer<PNGWriter::PixelType> edges_image =
+        edge_detect(input_img, blur_stddev, blur_rad_x, blur_rad_y);
 
     // Record end of algorithm
     struct timeval end;
@@ -101,7 +101,7 @@ int main(int argc, char *argv[])
     std::fstream png_outfile(output_fname, std::ios::binary | std::ios::out);
 
     PNGWriter writer;
-    writer.write(png_outfile, blurred);
+    writer.write(png_outfile, edges_image, PNG_COLOR_TYPE_GRAY);
 
     return 0;
 }
