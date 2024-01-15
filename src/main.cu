@@ -44,12 +44,16 @@ int main(int argc, char *argv[])
     // Declare the supported options.
     po::options_description desc("Usage");
     desc.add_options()("help,h", "Issue help message and exit.")(
-        "blur_stddev,s", po::value<std::string>(),
+        "blur_stddev,s", po::value<double>(),
         "Standard deviation of Gaussian blur used (default 1).")(
-        "blur_rad_x,x", po::value<std::string>(),
+        "blur_rad_x,x", po::value<ssize_t>(),
         "x-radius of Gaussian blur used. (default 1).")(
-        "blur_rad_y,y", po::value<std::string>(),
+        "blur_rad_y,y", po::value<ssize_t>(),
         "y-radius of Gaussian blur used. (default 1).")(
+        "upper_threshold,u", po::value<double>(),
+        "Upper threshold to apply to image with edges [0-1]. (default 1).")(
+        "lower_threshold,l", po::value<double>(),
+        "Lower threshold to apply to image with edges [0-1]. (default 0.5).")(
         "input,i", po::value<std::string>(),
         "Path to input image. (Required).")(
         "output,o", po::value<std::string>(),
@@ -72,7 +76,10 @@ int main(int argc, char *argv[])
     ssize_t blur_rad_x = get_optional_arg(vm, "blur_rad_x", 1);
     ssize_t blur_rad_y = get_optional_arg(vm, "blur_rad_y", 1);
 
-    float blur_stddev = get_optional_arg(vm, "blur_stddev", 1);
+    double blur_stddev = get_optional_arg(vm, "blur_stddev", 1);
+
+    double upper_threshold = get_optional_arg(vm, "upper_threshold", 1);
+    double lower_threshold = get_optional_arg(vm, "lower_threshold", 0.5);
 
     std::string input_fname = vm["input"].as<std::string>();
     std::string output_fname = vm["output"].as<std::string>();
@@ -88,7 +95,7 @@ int main(int argc, char *argv[])
     gettimeofday(&start, nullptr);
 
     ImageBuffer<PNGWriter::PixelType> edges_image =
-        edge_detect(input_img, blur_stddev, blur_rad_x, blur_rad_y);
+        edge_detect(input_img, blur_stddev, blur_rad_x, blur_rad_y, upper_threshold, lower_threshold);
 
     // Record end of algorithm
     struct timeval end;
