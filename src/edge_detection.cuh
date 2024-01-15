@@ -49,8 +49,11 @@ __global__ void sobel_grad_kern(PixelType *in,
     // normalize gradient to range [0, 1]
     grad = (grad + 1) / 2;
 
-    CUDA_IMAGE_BUF_ACCESS(grad_buf, grad_buf_pitch, height, x, y, 0) = grad;
-    CUDA_IMAGE_BUF_ACCESS(grad_buf, grad_buf_pitch, height, x, y, 1) = grad_direction;
+    if (x < width && y < height)
+    {
+        CUDA_IMAGE_BUF_ACCESS(grad_buf, grad_buf_pitch, height, x, y, 0) = grad;
+        CUDA_IMAGE_BUF_ACCESS(grad_buf, grad_buf_pitch, height, x, y, 1) = grad_direction;
+    }
 }
 
 template <typename PixelType>
@@ -66,47 +69,52 @@ __global__ void maximum_suppression_kern(float *grad_buf,
     ssize_t x = blockIdx.x * blockDim.x + threadIdx.x + 1;
     ssize_t y = blockIdx.y * blockDim.y + threadIdx.y + 1;
 
-    float grad = CUDA_IMAGE_BUF_ACCESS(grad_buf, grad_buf_pitch, height, x, y, 0);
-    float grad_direction = CUDA_IMAGE_BUF_ACCESS(grad_buf, grad_buf_pitch, height, x, y, 1);
+    // this branch will only negatively affect threads in the last block.
+    // For the vast majority of blocks all threads will pass this check and remain in sync.
+    if (x < width && y < height)
+    {
+        float grad = CUDA_IMAGE_BUF_ACCESS(grad_buf, grad_buf_pitch, height, x, y, 0);
+        float grad_direction = CUDA_IMAGE_BUF_ACCESS(grad_buf, grad_buf_pitch, height, x, y, 1);
 
-    // apply maximum suppression
-    /**
-     * Essentially we want the closest pixels in the direction of and opposite to the gradient vector.
-     * For this we consider the following compass of direcions
-     *
-     * 3pi/4   pi/2   pi/4
-     *    \     |     /
-     *     \    |    /
-     *      \   |   /
-     * pi ------------- 0
-     *      /   |   \
-     *     /    |    \
-     *    /     |     \
-     * 5pi/4   3pi/2   7pi/4
-     *
-     * Anything with pi/4 <= grad_direction < 3pi/4 for example is compared to pixels with y - 1 and y + 1.
-     * We can use bools as ints and some clever consideration of the compass above to
-     *    figure out the ix and iy such that (x + ix, y + iy) and (x - ix, y - iy)
-     *    are the pixels we need to compare with in the maximum suppression.
-     */
-    ssize_t iy = (grad_direction >= 5 * M_PI / 4 && grad_direction < 7 * M_PI / 4) -
-                 (grad_direction >= M_PI / 4 && grad_direction < 3 * M_PI / 4);
-    ssize_t ix = (grad_direction < M_PI / 4 || grad_direction >= 7 * M_PI / 4) -
-                 (grad_direction >= 3 * M_PI / 4 && grad_direction < 5 * M_PI / 4);
+        // apply maximum suppression
+        /**
+         * Essentially we want the closest pixels in the direction of and opposite to the gradient vector.
+         * For this we consider the following compass of direcions
+         *
+         * 3pi/4   pi/2   pi/4
+         *    \     |     /
+         *     \    |    /
+         *      \   |   /
+         * pi ------------- 0
+         *      /   |   \
+         *     /    |    \
+         *    /     |     \
+         * 5pi/4   3pi/2   7pi/4
+         *
+         * Anything with pi/4 <= grad_direction < 3pi/4 for example is compared to pixels with y - 1 and y + 1.
+         * We can use bools as ints and some clever consideration of the compass above to
+         *    figure out the ix and iy such that (x + ix, y + iy) and (x - ix, y - iy)
+         *    are the pixels we need to compare with in the maximum suppression.
+         */
+        ssize_t iy = (grad_direction >= 5 * M_PI / 4 && grad_direction < 7 * M_PI / 4) -
+                     (grad_direction >= M_PI / 4 && grad_direction < 3 * M_PI / 4);
+        ssize_t ix = (grad_direction < M_PI / 4 || grad_direction >= 7 * M_PI / 4) -
+                     (grad_direction >= 3 * M_PI / 4 && grad_direction < 5 * M_PI / 4);
 
-    float last = CUDA_IMAGE_BUF_ACCESS(grad_buf, grad_buf_pitch, height, x - ix, y - iy, 0);
-    float next = CUDA_IMAGE_BUF_ACCESS(grad_buf, grad_buf_pitch, height, x + ix, y + iy, 0);
+        float last = CUDA_IMAGE_BUF_ACCESS(grad_buf, grad_buf_pitch, height, x - ix, y - iy, 0);
+        float next = CUDA_IMAGE_BUF_ACCESS(grad_buf, grad_buf_pitch, height, x + ix, y + iy, 0);
 
-    // This gradient value must be larger than the adjacent values on the
-    //    line in the direction of the gradient.
-    grad *= (grad >= last && grad >= next);
+        // This gradient value must be larger than the adjacent values on the
+        //    line in the direction of the gradient.
+        grad *= (grad >= last && grad >= next);
 
-    // apply thresholds
-    grad *= (grad <= upper_threshold);
-    grad *= (grad >= lower_threshold);
+        // apply thresholds
+        grad *= (grad <= upper_threshold);
+        grad *= (grad >= lower_threshold);
 
-    CUDA_IMAGE_BUF_ACCESS(edges_image, edges_image_pitch, height, x, y, 0) =
-        numeric_limits<PixelType>::max * grad;
+        CUDA_IMAGE_BUF_ACCESS(edges_image, edges_image_pitch, height, x, y, 0) =
+            numeric_limits<PixelType>::max * grad;
+    }
 }
 
 template <typename PixelType>
