@@ -1,4 +1,4 @@
-# Canny Edge Detection in CUDA C++
+![dome-of-the-rock-min](https://github.com/MarkMizzi/gpu-edge-detection/assets/88614379/15b3b8cd-2777-4f22-a89d-d5411f1001d7)# Canny Edge Detection in CUDA C++
 
 This repository contains an implementation of Canny edge detection in CUDA C++.
 
@@ -28,6 +28,15 @@ Input:
 ![jaguar-min](https://github.com/MarkMizzi/gpu-edge-detection/assets/88614379/9123fd20-7bcb-4f52-a0bb-b920c727d5a7)
 Output:
 ![jaguar-edges](https://github.com/MarkMizzi/gpu-edge-detection/assets/88614379/3b46a240-513e-43ad-aba8-58e122a33324)
+
+```{sh}
+./target/edging -i dome-of-the-rock.png -o dome-of-the-rock-edges.png -x 1 -y 1 -s 2.0 -l 0.52
+```
+
+Input:
+![dome-of-the-rock-min](https://github.com/MarkMizzi/gpu-edge-detection/assets/88614379/9afa7ca6-630a-4a24-be03-e86d315cfa5c)
+Output:
+![dome-of-the-rock-edges](https://github.com/MarkMizzi/gpu-edge-detection/assets/88614379/59a9696a-d152-4382-8995-d8e458f1abf2)
 
 ```{sh}
 ./target/edging -i astronaut.png -o astronaut-edges.png -x 2 -y 2 -s 2.0 -l 0.53
