@@ -16,7 +16,7 @@ Specifically, the pipeline
 ```
 
 Input:
-![IMG_2998-min](https://github.com/MarkMizzi/gpu-edge-detection/assets/88614379/950536b5-e313-404d-b6dd-13e116398de3)
+![IMG_2998-min](https://github.com/MarkMizzi/gpu-edge-detection/assets/88614379/0b006f7d-e676-45f2-8414-f27839d1f415)
 Output:
 ![dome](https://github.com/MarkMizzi/gpu-edge-detection/assets/88614379/27ee148d-94f8-4149-9bc6-31abd002c953)
 
