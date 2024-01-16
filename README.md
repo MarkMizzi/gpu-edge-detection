@@ -66,8 +66,8 @@ make clean
 
 ## Usage
 
-The program only supports RGB PNG images (no alpha channel) at the moment. 
-If you have other input, please convert it using a program such as Gimp before using it as input to the program.
+The program does not support indexed PNG images as input at the moment. 
+If you have such an input, please convert it to RGB or grayscale using a program like Gimp before using it as input to the program.
 
 To see the available options, run
 ```{sh}
