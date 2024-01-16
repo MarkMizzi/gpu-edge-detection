@@ -1,4 +1,4 @@
-![dome-of-the-rock-min](https://github.com/MarkMizzi/gpu-edge-detection/assets/88614379/15b3b8cd-2777-4f22-a89d-d5411f1001d7)# Canny Edge Detection in CUDA C++
+# Canny edge detector in CUDA C++
 
 This repository contains an implementation of Canny edge detection in CUDA C++.
 
