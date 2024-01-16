@@ -117,6 +117,7 @@ __global__ void maximum_suppression_kern(float *grad_buf,
     }
 }
 
+// NOTE: Given image is assumed to be grayscale.
 template <typename PixelType>
 ImageBuffer<PixelType> edge_detect(const ImageBuffer<PixelType> &image,
                                    float stddev,
@@ -131,10 +132,8 @@ ImageBuffer<PixelType> edge_detect(const ImageBuffer<PixelType> &image,
     width = width == 0 ? image.width : width;
     height = height == 0 ? image.height : height;
 
-    ImageBuffer<PixelType> grayscale_image = image.to_grayscale();
-
     // texture with normalized coords and normalized float read mode
-    Layered2DTextureBuffer grayscale_image_texbuf(grayscale_image, true, true);
+    Layered2DTextureBuffer image_texbuf(image, true, true);
     CudaImageBuffer<PixelType> blurred_device(width, height, image.channels);
     CudaImageBuffer<float> gradient_device(width, height, 2);
     CudaImageBuffer<PixelType> edges_image_device(width, height, 1);
@@ -152,12 +151,12 @@ ImageBuffer<PixelType> edge_detect(const ImageBuffer<PixelType> &image,
         gridsize,
         blocksize,
         gauss_matrix_size * sizeof(float)>>>(
-        grayscale_image_texbuf.tex_obj,
+        image_texbuf.tex_obj,
         blurred_device.data,
         width,
         height,
         blurred_device.pitch / sizeof(PixelType),
-        grayscale_image.channels,
+        image.channels,
         stddev,
         rad_x,
         rad_y);
