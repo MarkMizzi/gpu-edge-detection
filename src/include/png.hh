@@ -13,6 +13,10 @@ extern "C"
 #include <stdexcept>
 #include <vector>
 
+// Constants used for conversion from RGB to grayscale (intensity)
+static constexpr float red_intensity = 0.299;
+static constexpr float green_intensity = 0.587;
+
 class PNGReadError : std::runtime_error
 {
     using std::runtime_error::runtime_error;
@@ -46,7 +50,9 @@ private:
     }
 
 public:
-    ImageBuffer<PixelType> read(std::istream &source)
+    // NOTE: Image is read into memory as an 8-bit depth RGB image or an 8-bit depth grayscale image
+    // This covers most algorithms that we may be interested in implementing
+    ImageBuffer<PixelType> read(std::istream &source, bool to_grayscale = false)
     {
         /// validate that source contains a PNG file
         if (!validate(source))
@@ -85,31 +91,77 @@ public:
         width = png_get_image_width(png_handle, png_info);
         height = png_get_image_height(png_handle, png_info);
 
-        channels = png_get_channels(png_handle, png_info);
+        channels = to_grayscale ? 1 : 3;
 
         color_type = png_get_color_type(png_handle, png_info);
 
-        // normalize to RGB format
-        if (color_type == PNG_COLOR_TYPE_PALETTE)
-            png_set_palette_to_rgb(png_handle);
+        /// We always strip the alpha channel ///
+
         if (color_type & PNG_COLOR_MASK_ALPHA)
             png_set_strip_alpha(png_handle);
 
-        /// read image data
-        ImageBuffer<PixelType> buf(width, height, channels);
+        /// Color space transformations ///
 
-        // temporary buffer to load things in row-major order.
-        std::vector<PixelType *> row_ptrs(height);
+        /**
+         * Ignoring alpha or transparency channels (which we remove in a previous space),
+         *    possible colors are:
+         * 1. RGB
+         * 2. Palette-based (i.e. a color LUT)
+         * 3. Grayscale
+         *
+         * We try to cater to these 3 color types, but the following conversions are illegal:
+         * 1. Grayscale to RGB
+         * 2. Palette-based to Grayscale
+         *
+         */
+
+        if (to_grayscale)
+        {
+            /// normalize color space to grayscale
+
+            if (color_type & PNG_COLOR_MASK_PALETTE)
+                throw PNGReadError("Cannot convert image with palette color type to grayscale.");
+
+            // Only RGB color types left.
+            if (color_type & PNG_COLOR_MASK_COLOR)
+                // error_action = 1 means that the call fails silently
+                png_set_rgb_to_gray_fixed(png_handle, 1, red_intensity, green_intensity);
+        }
+        else
+        {
+            /// normalize to RGB format
+
+            if (color_type & PNG_COLOR_MASK_PALETTE)
+                png_set_palette_to_rgb(png_handle);
+
+            // throw an error when a grayscale image is encountered
+            if (!(color_type & PNG_COLOR_MASK_COLOR))
+                throw PNGReadError("Cannot convert grayscale image to RGB.");
+
+            // At this point we've handled all the cases.
+        }
+
+        /// normalize to 8-bit pixel values ///
 
         png_byte bit_depth = png_get_bit_depth(png_handle, png_info);
 
-        // normalize to 8-bit pixel values
+        // pixel values may be packed into size less than 8 bytes.
         if (bit_depth < 8)
             png_set_packing(png_handle);
         else if (bit_depth == 16)
             png_set_strip_16(png_handle);
 
+        /// Read image data ///
+
+        ImageBuffer<PixelType> buf(width, height, channels);
+
+        // temporary buffer to load things in row-major order.
+        std::vector<PixelType *> row_ptrs(height);
+
         // allocate buffer for each row.
+        // IMPORTANT: If not called rowbytes will not be updated to account for
+        //     color space transforms above.
+        png_read_update_info(png_handle, png_info);
         size_t bufsize = png_get_rowbytes(png_handle, png_info);
         for (auto it = row_ptrs.begin(); it != row_ptrs.end(); ++it)
             *it = (PixelType *)calloc(bufsize, sizeof(char));

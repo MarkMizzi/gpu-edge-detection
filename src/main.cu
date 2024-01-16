@@ -88,7 +88,7 @@ int main(int argc, char *argv[])
 
     PNGReader reader;
 
-    ImageBuffer<PNGReader::PixelType> input_img = reader.read(input_png_file);
+    ImageBuffer<PNGReader::PixelType> input_img = reader.read(input_png_file, true);
 
     // Record start of algorithm
     struct timeval start;
