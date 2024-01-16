@@ -44,15 +44,15 @@ int main(int argc, char *argv[])
     // Declare the supported options.
     po::options_description desc("Usage");
     desc.add_options()("help,h", "Issue help message and exit.")(
-        "blur_stddev,s", po::value<double>(),
+        "blur_stddev,s", po::value<float>(),
         "Standard deviation of Gaussian blur used (default 1).")(
         "blur_rad_x,x", po::value<ssize_t>(),
         "x-radius of Gaussian blur used. (default 1).")(
         "blur_rad_y,y", po::value<ssize_t>(),
         "y-radius of Gaussian blur used. (default 1).")(
-        "upper_threshold,u", po::value<double>(),
+        "upper_threshold,u", po::value<float>(),
         "Upper threshold to apply to image with edges [0-1]. (default 1).")(
-        "lower_threshold,l", po::value<double>(),
+        "lower_threshold,l", po::value<float>(),
         "Lower threshold to apply to image with edges [0-1]. (default 0.5).")(
         "input,i", po::value<std::string>(),
         "Path to input image. (Required).")(
@@ -73,13 +73,13 @@ int main(int argc, char *argv[])
     CHECK_REQUIRED_ARG(desc, vm, "output");
 
     // size of neighbourhood used when computing disparity
-    ssize_t blur_rad_x = get_optional_arg(vm, "blur_rad_x", 1);
-    ssize_t blur_rad_y = get_optional_arg(vm, "blur_rad_y", 1);
+    ssize_t blur_rad_x = get_optional_arg(vm, "blur_rad_x", static_cast<ssize_t>(1));
+    ssize_t blur_rad_y = get_optional_arg(vm, "blur_rad_y", static_cast<ssize_t>(1));
 
-    double blur_stddev = get_optional_arg(vm, "blur_stddev", 1);
+    float blur_stddev = get_optional_arg(vm, "blur_stddev", 1.0f);
 
-    double upper_threshold = get_optional_arg(vm, "upper_threshold", 1);
-    double lower_threshold = get_optional_arg(vm, "lower_threshold", 0.5);
+    float upper_threshold = get_optional_arg(vm, "upper_threshold", 1.0f);
+    float lower_threshold = get_optional_arg(vm, "lower_threshold", 0.5f);
 
     std::string input_fname = vm["input"].as<std::string>();
     std::string output_fname = vm["output"].as<std::string>();
