@@ -4,7 +4,9 @@
 #include <cassert>
 #include <iostream>
 #include <limits>
+#include <type_traits>
 #include <vector>
+
 template <typename PixelType,
           std::enable_if_t<std::is_arithmetic<PixelType>::value, bool> = true>
 class ImageBuffer

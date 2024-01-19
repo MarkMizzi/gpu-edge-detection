@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <limits>
+#include <type_traits>
 
 /** This is a wrapper around std::numeric_limits that can be used inside a CUDA kernel.
  */
